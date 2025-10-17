@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard: Total Sum</title>
+    <!-- Tailwind CSS CDN for a clean and responsive design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom basic styles for font, though Tailwind provides most */
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 antialiased min-h-screen flex items-center justify-center py-10 px-4">
+    <main class="container mx-auto max-w-4xl">
+        <section class="bg-white shadow-lg rounded-lg p-6 md:p-8">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-center mb-6 text-gray-800">Total Sales Dashboard</h1>
+
+            <!-- Error message display area, hidden by default -->
+            <div id="error-message" role="alert" aria-live="assertive" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
+                <strong class="font-bold">Error!</strong>
+                <span class="block sm:inline ml-2"></span>
+            </div>
+
+            <!-- Main content container, can be hidden on error -->
+            <div id="content-container">
+                <!-- Prominent display for total sales -->
+                <div class="mb-8 p-6 bg-blue-600 text-white rounded-lg shadow-md text-center">
+                    <p class="text-lg font-semibold uppercase tracking-wide opacity-90">Total Sales</p>
+                    <p id="total-sales" class="text-5xl md:text-6xl font-black mt-2 leading-tight">
+                        <!-- Total sales will be inserted here by JavaScript -->
+                    </p>
+                </div>
+
+                <!-- Individual sales data table -->
+                <div class="mt-8">
+                    <h2 class="text-2xl font-bold mb-4 text-gray-800">Individual Sales Data</h2>
+                    <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <caption class="p-5 text-lg font-semibold text-left text-gray-900 bg-white">
+                                Product Sales Breakdown
+                                <p class="mt-1 text-sm font-normal text-gray-500">A detailed list of each product and its corresponding sales figure from the provided data.</p>
+                            </caption>
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">Product</th>
+                                    <th scope="col" class="px-6 py-3 text-right">Sales</th>
+                                </tr>
+                            </thead>
+                            <tbody id="data-table-body">
+                                <!-- Data rows will be inserted here by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Embedded CSV data as a multiline string
+        const csvData = `Product,Sales
+Laptop,1200.50
+Mouse,25.99
+Keyboard,89.99
+Monitor,350.00`;
+
+        /**
+         * Parses CSV data string and calculates total sales.
+         * Provides robust error handling for malformed data.
+         * @param {string} csv - The CSV data as a string.
+         * @returns {{products: Array<{Product: string, Sales: number}>, totalSales: number}}
+         * @throws {Error} If CSV data is malformed, missing required headers, or contains invalid sales values.
+         */
+        function processCSV(csv) {
+            const lines = csv.trim().split('\n');
+            if (lines.length < 2) {
+                throw new Error("CSV data is empty or malformed (expected header and at least one data row).");
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim());
+            const dataRows = lines.slice(1);
+
+            const products = [];
+            let totalSales = 0;
+            const salesColumnIndex = headers.indexOf('Sales');
+            const productColumnIndex = headers.indexOf('Product');
+
+            if (salesColumnIndex === -1) {
+                throw new Error("CSV data is missing the 'Sales' column header. Please ensure it is present.");
+            }
+            if (productColumnIndex === -1) {
+                throw new Error("CSV data is missing the 'Product' column header. Please ensure it is present.");
+            }
+
+            dataRows.forEach((line, index) => {
+                const values = line.split(',').map(v => v.trim());
+                // Ensure row has the same number of columns as headers
+                if (values.length !== headers.length) {
+                    console.warn(`Skipping malformed row ${index + 2} (line "${line}"): Mismatch in column count.`);
+                    return; // Skip and log malformed rows, continue processing valid ones
+                }
+
+                const productName = values[productColumnIndex];
+                const salesStr = values[salesColumnIndex];
+                const sales = parseFloat(salesStr);
+
+                if (isNaN(sales)) {
+                    throw new Error(`Invalid sales value "${salesStr}" found for product "${productName}" on row ${index + 2}. Sales must be a number.`);
+                }
+                // Optional: Business logic could handle negative sales differently (e.g., exclude, warn).
+                // For this app, they are included in the sum.
+
+                products.push({
+                    Product: productName,
+                    Sales: sales
+                });
+                totalSales += sales;
+            });
+
+            return { products, totalSales };
+        }
+
+        // Execute script once the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            const totalSalesElement = document.getElementById('total-sales');
+            const dataTableBody = document.getElementById('data-table-body');
+            const errorMessageElement = document.getElementById('error-message');
+            const errorMessageSpan = errorMessageElement.querySelector('span');
+            const contentContainer = document.getElementById('content-container');
+
+            try {
+                // Clear any previous error messages and ensure content is visible
+                errorMessageElement.classList.add('hidden');
+                errorMessageSpan.textContent = '';
+                contentContainer.classList.remove('hidden');
+
+                // Process the embedded CSV data
+                const { products, totalSales } = processCSV(csvData);
+
+                // Display total sales prominently, formatted to 2 decimal places
+                totalSalesElement.textContent = `$${totalSales.toFixed(2)}`;
+
+                // Display product data in the table
+                dataTableBody.innerHTML = ''; // Clear existing rows
+                products.forEach(product => {
+                    const row = document.createElement('tr');
+                    row.className = 'bg-white border-b hover:bg-gray-50'; // Tailwind table row styling
+                    row.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${product.Product}</td>
+                        <td class="px-6 py-4 text-right">$${product.Sales.toFixed(2)}</td>
+                    `;
+                    dataTableBody.appendChild(row);
+                });
+
+            } catch (error) {
+                // Handle any errors during CSV processing or display
+                console.error("Error processing sales data:", error);
+                errorMessageSpan.textContent = error.message;
+                errorMessageElement.classList.remove('hidden'); // Show error message div
+                contentContainer.classList.add('hidden'); // Hide main content on error
+
+                // Display default/error state for sum and table
+                totalSalesElement.textContent = '$0.00';
+                dataTableBody.innerHTML = `<tr><td colspan="2" class="px-6 py-4 text-center text-red-500">Could not load sales data. Please check the data source.</td></tr>`;
+            }
+        });
+    </script>
+</body>
+</html>
